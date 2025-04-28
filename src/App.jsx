@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./index.css";
 
 import { PageTemplate } from "./components/PageTemplate";
@@ -88,6 +88,8 @@ const Player = ({
   const [volume, setVolume] = useState(0.8);
   const [shuffled, setShuffled] = useState(false);
   const [looped, setLooped] = useState(false);
+  const fileInputRef = useRef(null);
+  const audioContextRef = useRef(null);
 
   let playlist = [];
   const [filter, setFilter] = useState([]);
@@ -104,6 +106,17 @@ const Player = ({
   });
 
   useEffect(() => {
+    if (trackList.length === 0) {
+      setAudio(null);
+      setTitle("");
+      setLength(0);
+      setTime(0);
+      setSlider(1);
+      setBuffer(0);
+      setIsPlaying(false);
+      return;
+    }
+
     const audio = new Audio(trackList[curTrack].url);
     audio.load();
 
@@ -151,7 +164,7 @@ const Player = ({
       audio.pause();
       audio.src = "";
     };
-  }, []);
+  }, [curTrack, trackList]);
 
   useEffect(() => {
     if (audio) {
@@ -265,6 +278,40 @@ const Player = ({
       : setCurTrack((curTrack = playlist[playlist.length - 1]));
   };
 
+  const stopOtherAudio = async () => {
+    try {
+      // Create a short silent audio element
+      const silentAudio = new Audio();
+      silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      
+      // Try to play and immediately pause to stop other audio
+      await silentAudio.play();
+      silentAudio.pause();
+      
+      // Also try to use AudioContext as a backup method
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      
+      // Create a short silent buffer
+      const buffer = audioContextRef.current.createBuffer(1, 1, 22050);
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContextRef.current.destination);
+      source.start();
+      source.stop(audioContextRef.current.currentTime + 0.1);
+      
+      // Force audio context to start
+      await audioContextRef.current.resume();
+    } catch (error) {
+      console.error('Error stopping other audio:', error);
+    }
+  };
+
   const play = () => {
     setIsPlaying(true);
     audio.play();
@@ -312,9 +359,34 @@ const Player = ({
     play();
   };
 
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const fileUrl = URL.createObjectURL(file);
+      const newTrack = {
+        url: fileUrl,
+        title: file.name,
+        tags: ["local"],
+      };
+      
+      // Add the new track to the beginning of the trackList
+      trackList.unshift(newTrack);
+      setCurTrack(0);
+      
+      // Update audio source
+      if (audio) {
+        audio.src = fileUrl;
+        audio.load();
+        setTitle(file.name);
+        // Remove auto play
+        setIsPlaying(false);
+      }
+    }
+  };
+
   return (
     <PageTemplate>
-      {includeTags && (
+      {includeTags && trackList.length > 0 && (
         <TagsTemplate>
           {tags.map((tag, index) => {
             return (
@@ -330,55 +402,94 @@ const Player = ({
           })}
         </TagsTemplate>
       )}
-      {includeSearch && (
-        <Search
-          value={query}
-          onChange={(e) => updateQuery(e.target.value.toLowerCase())}
-          placeholder={`Search ${trackList.length} tracks...`}
-        />
-      )}
-      <PlayerTemplate>
-        <TitleAndTimeBox>
-          <Title title={title} />
-          <Time
-            time={`${!time ? "0:00" : formatTime(time)}/${
-              !length ? "0:00" : formatTime(length)
-            }`}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+        {includeSearch && trackList.length > 0 && (
+          <Search
+            value={query}
+            onChange={(e) => updateQuery(e.target.value.toLowerCase())}
+            placeholder={`Search ${trackList.length} tracks...`}
           />
-        </TitleAndTimeBox>
-        <Progress
-          value={slider}
-          progress={buffer}
-          onChange={(e) => {
-            setSlider(e.target.value);
-            setDrag(e.target.value);
+        )}
+        <input
+          type="file"
+          accept="audio/*"
+          onChange={handleFileSelect}
+          style={{ display: "none" }}
+          ref={fileInputRef}
+        />
+        <button
+          onClick={() => fileInputRef.current.click()}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#2c5282",
+            color: "white",
+            border: "2px solid #2c5282",
+            borderRadius: "5px",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            whiteSpace: "nowrap",
+            ":hover": {
+              backgroundColor: "transparent",
+              color: "#2c5282"
+            }
           }}
-          onMouseUp={play}
-          onTouchEnd={play}
-        />
-        <ButtonsAndVolumeBox>
-          <ButtonsBox>
-            <Loop src={looped ? loopCurrentBtn : loopNoneBtn} onClick={loop} />
-            <Previous src={previousBtn} onClick={previous} />
-            {isPlaying ? (
-              <Pause src={pauseBtn} onClick={pause} />
-            ) : (
-              <Play src={playBtn} onClick={play} />
-            )}
-            <Next src={nextBtn} onClick={next} />
-            <Shuffle
-              src={shuffled ? shuffleAllBtn : shuffleNoneBtn}
-              onClick={shuffle}
+        >
+          Load Local Audio File
+        </button>
+      </div>
+      {trackList.length > 0 ? (
+        <PlayerTemplate>
+          <TitleAndTimeBox>
+            <Title title={title} />
+            <Time
+              time={`${!time ? "0:00" : formatTime(time)}/${
+                !length ? "0:00" : formatTime(length)
+              }`}
             />
-          </ButtonsBox>
-          <Volume
-            value={volume}
+          </TitleAndTimeBox>
+          <Progress
+            value={slider}
+            progress={buffer}
             onChange={(e) => {
-              setVolume(e.target.value / 100);
+              setSlider(e.target.value);
+              setDrag(e.target.value);
             }}
+            onMouseUp={play}
+            onTouchEnd={play}
           />
-        </ButtonsAndVolumeBox>
-      </PlayerTemplate>
+          <ButtonsAndVolumeBox>
+            <ButtonsBox>
+              <Loop src={looped ? loopCurrentBtn : loopNoneBtn} onClick={loop} />
+              <Previous src={previousBtn} onClick={previous} />
+              {isPlaying ? (
+                <Pause src={pauseBtn} onClick={pause} />
+              ) : (
+                <Play src={playBtn} onClick={play} />
+              )}
+              <Next src={nextBtn} onClick={next} />
+              <Shuffle
+                src={shuffled ? shuffleAllBtn : shuffleNoneBtn}
+                onClick={shuffle}
+              />
+            </ButtonsBox>
+            <Volume
+              value={volume}
+              onChange={(e) => {
+                setVolume(e.target.value / 100);
+              }}
+            />
+          </ButtonsAndVolumeBox>
+        </PlayerTemplate>
+      ) : (
+        <div style={{ 
+          textAlign: "center", 
+          padding: "20px", 
+          color: "var(--titleColor)",
+          fontSize: "1.2em" 
+        }}>
+          No tracks loaded. Please load an audio file to start playing.
+        </div>
+      )}
       <PlaylistTemplate visibility={showPlaylist}>
         {trackList.sort(sortCompare).map((el, index) => {
           if (

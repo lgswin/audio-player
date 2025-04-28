@@ -9,25 +9,25 @@
 }
 
 :root {
-  --tagsBackground: #3e32e4;
+  --tagsBackground: #2c5282;
   --tagsText: #ffffff;
-  --tagsBackgroundHoverActive: #6e65f1;
+  --tagsBackgroundHoverActive: #1a365d;
   --tagsTextHoverActive: #ffffff;
-  --searchBackground: #18191f;
+  --searchBackground: #2d3748;
   --searchText: #ffffff;
-  --searchPlaceHolder: #575a77;
-  --playerBackground: #18191f;
+  --searchPlaceHolder: #a0aec0;
+  --playerBackground: #1a202c;
   --titleColor: #ffffff;
-  --timeColor: #ffffff;
-  --progressSlider: #3e32e4;
-  --progressUsed: #ffffff;
-  --progressLeft: #151616;
-  --bufferLoaded: #1f212b;
-  --volumeSlider: #3e32e4;
-  --volumeUsed: #ffffff;
-  --volumeLeft: #151616;
-  --playlistBackground: #18191f;
-  --playlistText: #575a77;
-  --playlistBackgroundHoverActive: #18191f;
+  --timeColor: #cbd5e0;
+  --progressSlider: #4299e1;
+  --progressUsed: #4299e1;
+  --progressLeft: #2d3748;
+  --bufferLoaded: #2d3748;
+  --volumeSlider: #4299e1;
+  --volumeUsed: #4299e1;
+  --volumeLeft: #2d3748;
+  --playlistBackground: #2d3748;
+  --playlistText: #a0aec0;
+  --playlistBackgroundHoverActive: #4a5568;
   --playlistTextHoverActive: #ffffff;
 }
